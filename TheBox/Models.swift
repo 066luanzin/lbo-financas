@@ -196,6 +196,8 @@ final class Conta {
     var adiantadas: Int = 0
     /// Juros ao mês em % (opcional, usado no método avalanche)
     var juros: Double = 0
+    /// Último mês em que a conta aparece (0 = sem fim). Usado quando a lista de contas é substituída.
+    var fim: Int = 0
 
     init(nome: String, valor: Double, dia: Int, venceMesSeguinte: Bool, categoria: String,
          repetir: Bool, parcelaAtual: Int, totalParcelas: Int, inicio: Int) {
@@ -217,6 +219,7 @@ final class Conta {
 
     func ocorre(em i: Int) -> Bool {
         if excluidos.contains(Mes.chave(i)) { return false }
+        if fim > 0 && i > fim { return false }
         let d = i - inicio
         if d < 0 { return false }
         if parcelada { return max(parcelaAtual, 1) + d <= totalParcelas - adiantadas }
@@ -264,6 +267,7 @@ final class Conta {
         c.excluidos = excluidos
         c.adiantadas = adiantadas
         c.juros = juros
+        c.fim = fim
         return c
     }
 

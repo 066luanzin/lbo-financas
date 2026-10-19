@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct ConfigView: View {
     enum Folha: String, Identifiable {
-        case nome, tema, catGasto, catReceita, carteiras, moeda, toqueDuplo, maquininha, pix, fixas, widget
+        case nome, tema, catGasto, catReceita, carteiras, moeda, toqueDuplo, maquininha, pix, fixas, widget, lista
         var id: String { rawValue }
     }
 
@@ -96,6 +96,7 @@ struct ConfigView: View {
             case .maquininha: GuiaView(guia: .maquininha)
             case .pix: GuiaView(guia: .pix)
             case .widget: GuiaView(guia: .widget)
+            case .lista: SubstituirContasSheet()
             case .fixas: ReceitasFixasSheet()
             }
         }
@@ -187,6 +188,8 @@ struct ConfigView: View {
                 }
 
                 Secao("Dados") {
+                    LinhaConfig(titulo: "Substituir contas por uma lista", icone: "list.bullet.rectangle") { folha = .lista }
+                    Divisor()
                     LinhaConfig(titulo: "Relatório do mês (PDF)", icone: "doc.richtext") {
                         if let url = RelatorioPDF.gerar(mes: Mes.indice(), ctx: ctx) { exportar = ArquivoExportado(url: url) }
                     }

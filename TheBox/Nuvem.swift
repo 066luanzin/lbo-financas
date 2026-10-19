@@ -61,6 +61,7 @@ struct BackupDados: Codable {
         var excluidos: [String]
         var adiantadas: Int
         var juros: Double
+        var fim: Int?
     }
     struct Cat: Codable {
         var nome: String
@@ -125,7 +126,7 @@ enum Backup {
                 .init(nome: $0.nome, valor: $0.valor, dia: $0.dia, venceMesSeguinte: $0.venceMesSeguinte,
                       categoria: $0.categoria, repetir: $0.repetir, parcelaAtual: $0.parcelaAtual,
                       totalParcelas: $0.totalParcelas, inicio: $0.inicio, pagamentos: $0.pagamentos,
-                      excluidos: $0.excluidos, adiantadas: $0.adiantadas, juros: $0.juros)
+                      excluidos: $0.excluidos, adiantadas: $0.adiantadas, juros: $0.juros, fim: $0.fim)
             },
             categorias: cats.sorted { $0.ordem < $1.ordem }.map {
                 .init(nome: $0.nome, icone: $0.icone, tipo: $0.tipoRaw, limite: $0.limite,
@@ -170,6 +171,7 @@ enum Backup {
             nova.excluidos = c.excluidos
             nova.adiantadas = c.adiantadas
             nova.juros = c.juros
+            nova.fim = c.fim ?? 0
             ctx.insert(nova)
         }
         for c in b.categorias {

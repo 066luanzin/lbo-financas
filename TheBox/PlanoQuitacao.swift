@@ -45,7 +45,8 @@ enum PlanoCalculo {
     }
 
     static func ultimoMes(_ c: Conta) -> Int {
-        c.parcelada ? c.inicio + c.totalParcelas - c.adiantadas - max(c.parcelaAtual, 1) : c.inicio
+        let u = c.parcelada ? c.inicio + c.totalParcelas - c.adiantadas - max(c.parcelaAtual, 1) : c.inicio
+        return c.fim > 0 ? min(u, c.fim) : u
     }
 
     /// Conta com fim: parcelada ou única (as fixas que repetem pra sempre ficam de fora)
@@ -212,6 +213,7 @@ struct PlanoQuitacaoView: View {
     @State private var adiantando: Divida?
     @State private var editando: Conta?
     @State private var negociando: Divida?
+    @State private var mesAberto: Int?
 
     private var metodo: MetodoQuitacao { MetodoQuitacao(rawValue: metodoRaw) ?? .bolaDeNeve }
 
@@ -245,6 +247,7 @@ struct PlanoQuitacaoView: View {
                 } else {
                     resumo(total: totalDevido, pago: PlanoCalculo.jaPago(contas, hoje: hoje),
                            parcelas: dividas.reduce(0) { $0 + $1.restantes }, fim: fimNatural, dividas: dividas)
+                    mesAMes(fin: fin, hoje: hoje, fim: fimNatural)
                     dinheiroExtra(fin: fin, ordem: ordem, hoje: hoje, media: mediaGastos)
                     graficoDivida(hoje: hoje, fim: fimNatural)
                 }
@@ -321,6 +324,55 @@ struct PlanoQuitacaoView: View {
                     Text("\(dias)").font(.system(size: 34, weight: .heavy)).lineLimit(1)
                     Text(dias == 1 ? "dia" : "dias").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
+            }
+        }
+        .cartao(20)
+    }
+
+    /// Quanto você paga em cada mês até a última parcela (toque no mês pra ver as contas)
+    private func mesAMes(fin: Financas, hoje: Int, fim: Int) -> some View {
+        let meses = Array(hoje...max(fim, hoje + 1))
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("QUANTO VOCÊ PAGA MÊS A MÊS").font(.system(size: 12, weight: .semibold)).tracking(1.5).foregroundStyle(.secondary)
+                .padding(.bottom, 8)
+            ForEach(meses, id: \.self) { m in
+                let contasMes = fin.contasDoMes(m)
+                let total = contasMes.reduce(0) { $0 + $1.valor }
+                let falta = contasMes.filter { !$0.pago(em: m) }.reduce(0) { $0 + $1.valor }
+                Button {
+                    withAnimation(.snappy) { mesAberto = mesAberto == m ? nil : m }
+                } label: {
+                    HStack {
+                        Text(mesAno(m)).font(.system(size: 15, weight: m == hoje ? .bold : .regular))
+                        if m == hoje && falta < total {
+                            Text("falta \(falta.moeda)").font(.system(size: 12)).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(total.moeda).font(.system(size: 15, weight: .semibold))
+                        Image(systemName: mesAberto == m ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if mesAberto == m {
+                    VStack(spacing: 6) {
+                        ForEach(contasMes) { c in
+                            HStack {
+                                Image(systemName: c.pago(em: m) ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(c.pago(em: m) ? Color.green : Color.secondary)
+                                Text(c.nome).font(.system(size: 13)).lineLimit(1)
+                                Text("dia \(c.dia)").font(.system(size: 12)).foregroundStyle(.secondary)
+                                Spacer()
+                                Text(c.valor.moeda).font(.system(size: 13))
+                            }
+                        }
+                    }
+                    .padding(.bottom, 10)
+                }
+                if m != meses.last { Divisor() }
             }
         }
         .cartao(20)
