@@ -791,7 +791,9 @@ struct NovaCarteiraSheet: View {
                 for t in transacoes where t.carteira == antigo { t.carteira = nomeLimpo }
                 for conta in contas {
                     conta.pagamentos = conta.pagamentos.map {
-                        $0.hasSuffix("|" + antigo) ? String($0.dropLast(antigo.count)) + nomeLimpo : $0
+                        var e = $0.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+                        if e.count > 1 && e[1] == antigo { e[1] = nomeLimpo }
+                        return e.joined(separator: "|")
                     }
                 }
             }

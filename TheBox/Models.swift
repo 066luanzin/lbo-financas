@@ -231,17 +231,31 @@ final class Conta {
         return "\(max(parcelaAtual, 1) + i - inicio)/\(totalParcelas)"
     }
 
-    func pagamento(em i: Int) -> String? {
+    /// Pagamento salvo como "2026-11|Pix" ou, quando pago adiantado, "2026-11|Pix|2026-10" (mês em que pagou)
+    private func registroPagamento(em i: Int) -> [String]? {
         let prefixo = Mes.chave(i) + "|"
         guard let p = pagamentos.first(where: { $0.hasPrefix(prefixo) }) else { return nil }
-        return String(p.dropFirst(prefixo.count))
+        return p.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    func pagamento(em i: Int) -> String? {
+        registroPagamento(em: i).map { $0.count > 1 ? $0[1] : "" }
+    }
+
+    /// "2026-10" → índice do mês (ver Mes.indice)
+    static func mes(_ chave: String) -> Int? {
+        let p = chave.split(separator: "-")
+        guard p.count == 2, let a = Int(p[0]), let m = Int(p[1]) else { return nil }
+        return a * 12 + m - 1
     }
 
     func pago(em i: Int) -> Bool { pagamento(em: i) != nil }
 
     func marcarPago(em i: Int, carteira: String) {
         desmarcar(em: i)
-        pagamentos.append(Mes.chave(i) + "|" + carteira)
+        // conta de um mês que ainda não chegou: guarda o mês em que o dinheiro saiu de verdade
+        let hoje = Mes.indice()
+        pagamentos.append(Mes.chave(i) + "|" + carteira + (i > hoje ? "|" + Mes.chave(hoje) : ""))
     }
 
     func desmarcar(em i: Int) {
@@ -341,9 +355,18 @@ struct Financas {
         contas.filter { $0.ocorre(em: m) && $0.pago(em: m) }
     }
 
-    /// Contas pagas fora do cartão de crédito (saem do saldo na hora)
+    /// Contas pagas fora do cartão de crédito que saíram do saldo no mês m
+    /// (inclusive as de meses seguintes pagas adiantado neste mês)
     func contasPagasFora(em m: Int) -> Double {
-        contasPagas(em: m).filter { !credito($0.pagamento(em: m) ?? "") }.reduce(0) { $0 + $1.valor }
+        contas.reduce(0) { soma, c in
+            soma + c.pagamentos.reduce(0) { s, p in
+                let e = p.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+                guard let mesConta = Conta.mes(e[0]) else { return s }
+                let mesPago = e.count > 2 ? (Conta.mes(e[2]) ?? mesConta) : mesConta
+                let carteira = e.count > 1 ? e[1] : ""
+                return mesPago == m && c.ocorre(em: mesConta) && !credito(carteira) ? s + c.valor : s
+            }
+        }
     }
 
     /// Fatura do cartão que vence no mês m: compras no crédito do período (se o cartão tem dia de
