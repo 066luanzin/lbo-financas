@@ -15,6 +15,15 @@ enum Pedidos {
         var destino: String?
         var conta: String?
         var mes: Int?
+        /// editar/apagar: a transação como estava no backup
+        var original: Original?
+    }
+
+    struct Original: Decodable {
+        var data: Double?
+        var valor: Double?
+        var descricao: String?
+        var tipo: String?
     }
 
     struct Pedido: Decodable {
@@ -36,6 +45,14 @@ enum Pedidos {
         let carteiras = (try? ctx.fetch(FetchDescriptor<Carteira>(sortBy: [SortDescriptor(\.ordem)]))) ?? []
         let categorias = (try? ctx.fetch(FetchDescriptor<Categoria>(sortBy: [SortDescriptor(\.ordem)]))) ?? []
         let contas = (try? ctx.fetch(FetchDescriptor<Conta>())) ?? []
+        let transacoes = (try? ctx.fetch(FetchDescriptor<Transacao>())) ?? []
+        func achar(_ o: Original?) -> Transacao? {
+            guard let o, let quando = o.data, let v = o.valor else { return nil }
+            return transacoes.first {
+                abs($0.data.timeIntervalSince1970 - quando) < 1 && abs($0.valor - v) < 0.005
+                    && $0.descricao == (o.descricao ?? "") && (o.tipo == nil || $0.tipoRaw == o.tipo)
+            }
+        }
         let padrao = carteiras.first { $0.tipo != .credito }?.nome ?? ""
         let normal: (String) -> String = { PlanoCalculo.chave($0) }
         func banco(_ s: String?) -> String {
@@ -82,6 +99,17 @@ enum Pedidos {
                 guard let nome = x.conta, let mes = x.mes,
                       let c = contas.first(where: { $0.nome == nome && $0.ocorre(em: mes) && !$0.pago(em: mes) }) else { break }
                 c.marcarPago(em: mes, carteira: banco(x.banco))
+            case "editar":
+                guard let t = achar(x.original) else { break }
+                if let v = x.valor, v > 0 { t.valor = v }
+                t.descricao = desc
+                if let cat = x.categoria, categorias.contains(where: { $0.nome == cat && $0.tipo == t.tipo }) { t.categoria = cat }
+                if let b = x.banco, !b.isEmpty { t.carteira = banco(b) }
+                if let s = x.data, let dia = formato.date(from: s), !Calendar.current.isDate(dia, inSameDayAs: t.data) {
+                    t.data = data(s)
+                }
+            case "apagar":
+                if let t = achar(x.original) { ctx.delete(t) }
             default:
                 break
             }
