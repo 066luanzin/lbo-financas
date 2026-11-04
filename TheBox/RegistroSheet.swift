@@ -25,6 +25,7 @@ struct RegistroSheet: View {
     @State private var entrada: Bool
     @State private var repetirReceita = false
     @State private var foto: Data?
+    @State private var destino: String
     @FocusState private var focoValor: Bool
     @FocusState private var focoDescricao: Bool
 
@@ -38,6 +39,7 @@ struct RegistroSheet: View {
         _data = State(initialValue: editando?.data ?? .now)
         _entrada = State(initialValue: editando?.entrada ?? false)
         _foto = State(initialValue: editando?.foto)
+        _destino = State(initialValue: editando?.destino ?? "")
     }
 
     private var valor: Double { Double(Int(digitos) ?? 0) / 100 }
@@ -89,7 +91,7 @@ struct RegistroSheet: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.orange)
                     }
-                    if tipo != .transferencia { pagamentos }
+                    if tipo != .transferencia { pagamentos } else { bancosTransferencia }
                     if tipo == .receita && editando == nil {
                         LinhaToggle(titulo: "Repete todo mês",
                                     sub: "Ex.: salário. Entra sozinha todo dia \(Calendar.current.component(.day, from: data)) nos próximos meses",
@@ -262,6 +264,42 @@ struct RegistroSheet: View {
         }
     }
 
+    /// De qual banco saiu (ou entrou) e, entre bancos seus, pra qual foi
+    private var bancosTransferencia: some View {
+        let bancos = carteiras.filter { $0.tipo != .credito }
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(entrada ? "Em qual banco entrou?" : "De qual banco saiu?")
+                .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(bancos) { c in
+                        ChipOpcao(texto: c.nome, icone: c.tipo.icone, selecionado: carteira == c.nome, cheio: false) {
+                            carteira = c.nome
+                            if destino == c.nome { destino = "" }
+                        }
+                    }
+                }
+            }
+            if categoria == Transacao.outraConta && !entrada {
+                Text("Pra qual banco seu foi?").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(bancos.filter { $0.nome != carteira }) { c in
+                            ChipOpcao(texto: c.nome, icone: c.tipo.icone, selecionado: destino == c.nome, cheio: false) {
+                                destino = c.nome
+                            }
+                        }
+                    }
+                }
+                Text("Dinheiro que só trocou de banco: o total não muda, só o saldo de cada banco.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+        }
+        .onAppear {
+            if !bancos.contains(where: { $0.nome == carteira }) { carteira = bancos.first?.nome }
+        }
+    }
+
     private var pagamentos: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(tipo == .gasto ? "Como você pagou?" : "Onde entrou?")
@@ -298,11 +336,13 @@ struct RegistroSheet: View {
             t.descricao = desc
             t.data = data
             t.entrada = tipo == .transferencia ? entrada : false
+            t.destino = tipo == .transferencia && categoria == Transacao.outraConta && !entrada ? destino : ""
             t.foto = foto
             try? ctx.save()
         } else {
-            let nova = Transacao(tipo: tipo, valor: valor, categoria: categoria, carteira: tipo == .transferencia ? "" : cart,
+            let nova = Transacao(tipo: tipo, valor: valor, categoria: categoria, carteira: cart,
                                  descricao: desc, data: data, entrada: tipo == .transferencia ? entrada : false)
+            nova.destino = tipo == .transferencia && categoria == Transacao.outraConta && !entrada ? destino : ""
             nova.foto = foto
             ctx.insert(nova)
             if tipo == .receita && repetirReceita {

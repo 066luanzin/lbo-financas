@@ -125,6 +125,8 @@ final class Transacao {
     var entrada: Bool = false
     /// Foto do comprovante (opcional)
     @Attribute(.externalStorage) var foto: Data? = nil
+    /// Transferência entre bancos seus: banco que recebeu (o que saiu está em `carteira`). Não muda o total.
+    var destino: String = ""
 
     init(tipo: TipoTransacao, valor: Double, categoria: String, carteira: String, descricao: String,
          data: Date = .now, entrada: Bool = false) {
@@ -160,7 +162,7 @@ final class Transacao {
         switch tipo {
         case .gasto: return -valor
         case .receita: return valor
-        case .transferencia: return entrada ? valor : -valor
+        case .transferencia: return !destino.isEmpty ? 0 : (entrada ? valor : -valor)
         }
     }
 
@@ -169,6 +171,7 @@ final class Transacao {
         let c = Transacao(tipo: tipo, valor: valor, categoria: categoria, carteira: carteira, descricao: descricao,
                           data: data, entrada: entrada)
         c.foto = foto
+        c.destino = destino
         return c
     }
 }
@@ -420,21 +423,33 @@ struct Financas {
             .reduce(0) { $0 + ($1.tipo == .receita ? $1.valor : -$1.valor) }
     }
 
-    /// Saldo de uma conta (carteira) até o fim do mês m: tudo que foi registrado entrando ou saindo dela
+    /// Quanto tem num banco até o fim do mês m: o que entrou e saiu registrado nele,
+    /// as transferências entre seus bancos e as contas pagas com ele
     func saldoCarteira(_ nome: String, ate m: Int) -> Double {
-        let mov = transacoes.filter { $0.carteira == nome && $0.mes <= m }.reduce(0.0) { soma, t in
-            switch t.tipo {
-            case .receita: return soma + t.valor
-            case .gasto: return cartaoComFatura(t) == nil ? soma - t.valor : soma
-            case .transferencia: return soma + t.efeitoNoSaldo
+        var s = 0.0
+        for t in transacoes where t.mes <= m {
+            if t.carteira == nome {
+                switch t.tipo {
+                case .receita: s += t.valor
+                case .gasto: if cartaoComFatura(t) == nil { s -= t.valor }
+                case .transferencia: s += t.destino.isEmpty ? t.efeitoNoSaldo : -t.valor
+                }
+            }
+            if t.tipo == .transferencia && t.destino == nome { s += t.valor }
+        }
+        for c in contas {
+            for p in c.pagamentos {
+                let e = p.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+                guard e.count > 1, e[1] == nome, let mesConta = Conta.mes(e[0]) else { continue }
+                let mesPago = e.count > 2 ? (Conta.mes(e[2]) ?? mesConta) : mesConta
+                if mesPago <= m && c.ocorre(em: mesConta) { s -= c.valor }
             }
         }
-        guard let primeiro = transacoes.map(\.mes).min(), primeiro <= m else { return mov }
-        let pagas = (primeiro...m).reduce(0.0) { s, i in
-            s + contasPagas(em: i).filter { $0.pagamento(em: i) == nome }.reduce(0) { $0 + $1.valor }
-        }
-        return mov - pagas
+        return s
     }
+
+    /// Bancos e dinheiro (tudo que não é cartão de crédito)
+    func bancos() -> [Carteira] { carteiras.filter { $0.tipo != .credito } }
 
     /// "Pode gastar hoje": o que sobra até o fim do mês dividido pelos dias que faltam
     func podeGastarHoje() -> (resta: Double, porDia: Double, temBase: Bool) {

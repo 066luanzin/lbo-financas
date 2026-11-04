@@ -161,6 +161,7 @@ struct UsuarioView: View {
             }
             Recorrencias.gerar(ctx)
             Migracao.saldoAcumulado(ctx)
+            Migracao.bancos(ctx)
             Notificacoes.reagendar(ctx)
             if estado.bloqueado && faceID { desbloquear() }
             // iPhone novo (sem nada salvo): traz os dados do backup na nuvem

@@ -46,6 +46,7 @@ struct BackupDados: Codable {
         var descricao: String
         var data: Double
         var entrada: Bool? = nil
+        var destino: String? = nil
     }
     struct C: Codable {
         var nome: String
@@ -120,7 +121,8 @@ enum Backup {
         return BackupDados(
             transacoes: ts.sorted { $0.data < $1.data }.map {
                 .init(tipo: $0.tipoRaw, valor: $0.valor, categoria: $0.categoria, carteira: $0.carteira,
-                      descricao: $0.descricao, data: $0.data.timeIntervalSince1970, entrada: $0.entrada)
+                      descricao: $0.descricao, data: $0.data.timeIntervalSince1970, entrada: $0.entrada,
+                      destino: $0.destino.isEmpty ? nil : $0.destino)
             },
             contas: cs.sorted { $0.nome < $1.nome }.map {
                 .init(nome: $0.nome, valor: $0.valor, dia: $0.dia, venceMesSeguinte: $0.venceMesSeguinte,
@@ -159,9 +161,11 @@ enum Backup {
         try? ctx.delete(model: Recorrencia.self)
         try? ctx.delete(model: Caixinha.self)
         for t in b.transacoes {
-            ctx.insert(Transacao(tipo: TipoTransacao(rawValue: t.tipo) ?? .gasto, valor: t.valor, categoria: t.categoria,
+            let nova = Transacao(tipo: TipoTransacao(rawValue: t.tipo) ?? .gasto, valor: t.valor, categoria: t.categoria,
                                  carteira: t.carteira, descricao: t.descricao,
-                                 data: Date(timeIntervalSince1970: t.data), entrada: t.entrada ?? false))
+                                 data: Date(timeIntervalSince1970: t.data), entrada: t.entrada ?? false)
+            nova.destino = t.destino ?? ""
+            ctx.insert(nova)
         }
         for c in b.contas {
             let nova = Conta(nome: c.nome, valor: c.valor, dia: c.dia, venceMesSeguinte: c.venceMesSeguinte,

@@ -47,6 +47,7 @@ struct HomeView: View {
                             ocultar: $ocultar) { detalhes = true }
 
                 if mes == Mes.indice() && !ocultar {
+                    CartaoBancos(fin: fin) { detalhes = true }
                     if orcAtivo, let s = OrcamentoDia.situacao(em: .now, transacoes: transacoes) {
                         CartaoOrcamentoDia(limite: s.limite, gasto: s.gasto, nome: s.nome)
                     } else {
@@ -389,6 +390,8 @@ struct DetalhesSaldoView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 6)
                 .background(Color.cartao2.opacity(0.45), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                if mes == Mes.indice() { SecaoBancos(fin: fin) }
 
                 let pendentes = fin.contasDoMes(mes).filter { !$0.pago(em: mes) }
                 let faturas = fin.cartoes().filter { !$0.faturaPaga(em: mes) && fin.fatura($0, em: mes) > 0 }
