@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  VERSAO_BASE: "2.1"
+  VERSAO_BASE: "2.2"
 
 jobs:
   build:

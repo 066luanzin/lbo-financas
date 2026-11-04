@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timezone
 
 versao, build, tag, tamanho, notas = sys.argv[1:6]
-repo = "sofmarketing2025-create/thebox-app"
+repo = "066luanzin/lbo-financas"
 download = f"https://github.com/{repo}/releases/download/{tag}/LBO-Financas.ipa"
 icone = f"https://raw.githubusercontent.com/{repo}/main/TheBox/Assets.xcassets/AppIcon.appiconset/icon.png"
 data = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
