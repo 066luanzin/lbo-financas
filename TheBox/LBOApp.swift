@@ -174,6 +174,8 @@ struct UsuarioView: View {
             } else {
                 await Backup.enviar(ctx)
             }
+            // o que foi lançado pelo site
+            await Pedidos.aplicar(ctx)
         }
         .onChange(of: fase) { _, nova in
             switch nova {
@@ -184,6 +186,7 @@ struct UsuarioView: View {
             case .active:
                 if estado.bloqueado && faceID { desbloquear() }
                 Recorrencias.gerar(ctx)
+                Task { await Pedidos.aplicar(ctx) }
             default:
                 break
             }
