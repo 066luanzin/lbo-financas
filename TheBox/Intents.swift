@@ -86,8 +86,12 @@ struct RegistrarTextoIntent: AppIntent {
     @Parameter(title: "Texto")
     var texto: String
 
+    @Parameter(title: "Banco", description: "De qual banco é esse e-mail ou SMS. Em branco, o app tenta descobrir pelo texto.",
+               optionsProvider: OpcoesCarteira())
+    var banco: String?
+
     static var parameterSummary: some ParameterSummary {
-        Summary("Registrar a partir de \(\.$texto)")
+        Summary("Registrar a partir de \(\.$texto)") { \.$banco }
     }
 
     @MainActor
@@ -95,7 +99,7 @@ struct RegistrarTextoIntent: AppIntent {
         guard let container = Store.atual else {
             throw ErroAtalho(texto: "Entre no LBO Finanças primeiro.")
         }
-        try LeitorTexto.registrar(texto: texto, ctx: container.mainContext)
+        try LeitorTexto.registrar(texto: texto, ctx: container.mainContext, banco: banco)
         return .result()
     }
 }
@@ -110,8 +114,12 @@ struct RegistrarComprovanteIntent: AppIntent {
                inputConnectionBehavior: .connectToPreviousIntentResult)
     var arquivo: IntentFile
 
+    @Parameter(title: "Banco", description: "De qual banco saiu (ou entrou) o dinheiro.",
+               optionsProvider: OpcoesCarteira())
+    var banco: String?
+
     static var parameterSummary: some ParameterSummary {
-        Summary("Registrar \(\.$arquivo)")
+        Summary("Registrar \(\.$arquivo)") { \.$banco }
     }
 
     @MainActor
@@ -120,7 +128,7 @@ struct RegistrarComprovanteIntent: AppIntent {
             throw ErroAtalho(texto: "Entre no LBO Finanças primeiro.")
         }
         let texto = await LeitorArquivo.texto(de: arquivo)
-        try LeitorTexto.registrar(texto: texto, ctx: container.mainContext, foto: LeitorArquivo.foto(de: arquivo))
+        try LeitorTexto.registrar(texto: texto, ctx: container.mainContext, foto: LeitorArquivo.foto(de: arquivo), banco: banco)
         return .result()
     }
 }

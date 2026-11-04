@@ -19,7 +19,7 @@ enum LeitorTexto {
                                   "deposito", "creditado", "credito em conta", "salario", "rendimento", "foi recebido", "recebido"]
 
     /// Lê o texto e registra o gasto/receita. Sempre avisa o que aconteceu.
-    static func registrar(texto: String, ctx: ModelContext, foto: Data? = nil) throws {
+    static func registrar(texto: String, ctx: ModelContext, foto: Data? = nil, banco: String? = nil) throws {
         UserDefaults.standard.set(String(texto.prefix(3000)), forKey: "ultimoTextoLido")
         UserDefaults.standard.set(Date.now, forKey: "ultimoTextoData")
         guard let r = ler(texto) else {
@@ -33,7 +33,7 @@ enum LeitorTexto {
             Notificacoes.agora("Já estava registrado", "\(r.valor.moeda) desse horário já está no app.")
             return
         }
-        let cart = carteira(r, ctx: ctx)
+        let cart = carteira(r, ctx: ctx, banco: banco)
         if ehPropriaConta(r.nome) {
             // Pix entre contas suas não é gasto nem receita
             let tr = Transacao(tipo: .transferencia, valor: r.valor, categoria: Transacao.outraConta, carteira: cart,
@@ -187,12 +187,24 @@ enum LeitorTexto {
         return cats.first(where: { $0 == "Outros" }) ?? cats.first ?? "Outros"
     }
 
-    static func carteira(_ r: Resultado, ctx: ModelContext) -> String {
+    static func carteira(_ r: Resultado, ctx: ModelContext, banco: String? = nil) -> String {
         let lista = (try? ctx.fetch(FetchDescriptor<Carteira>(sortBy: [SortDescriptor(\.ordem)]))) ?? []
+        // banco escolhido na automação
+        if let banco, let c = lista.first(where: { Categorizador.normalizar($0.nome) == Categorizador.normalizar(banco) }) {
+            return c.nome
+        }
+        // nome do banco no texto (o que aparece primeiro costuma ser quem mandou o aviso)
+        let contas = lista.filter { $0.tipo != .credito }
+        let achados = contas.compactMap { c -> (Carteira, String.Index)? in
+            let n = Categorizador.normalizar(c.nome)
+            guard n.count >= 4, let r = r.texto.range(of: n) else { return nil }
+            return (c, r.lowerBound)
+        }
+        if let primeiro = achados.min(by: { $0.1 < $1.1 }) { return primeiro.0.nome }
         if r.texto.contains("pix"), let c = lista.first(where: { $0.tipo == .pix }) { return c.nome }
         if r.texto.contains("debito"), let c = lista.first(where: { $0.tipo == .debito }) { return c.nome }
         if r.texto.contains("credito") || r.texto.contains("cartao"),
            let c = lista.first(where: { $0.tipo == .credito }) { return c.nome }
-        return lista.first(where: { $0.tipo == .pix })?.nome ?? lista.first?.nome ?? ""
+        return lista.first(where: { $0.tipo == .pix })?.nome ?? contas.first?.nome ?? lista.first?.nome ?? ""
     }
 }
