@@ -36,6 +36,8 @@ targets:
         NSFaceIDUsageDescription: Usamos o Face ID para proteger seus dados financeiros.
         NSCameraUsageDescription: Pra você tirar foto do comprovante e guardar junto do gasto.
         NSPhotoLibraryUsageDescription: Pra você escolher a foto de um comprovante na galeria.
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.lbofinancas.app.pedidos]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.lbofinancas.app

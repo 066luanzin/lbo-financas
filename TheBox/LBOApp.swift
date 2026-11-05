@@ -107,6 +107,10 @@ struct LBOApp: App {
                 .preferredColorScheme(esquema)
                 .tint(.primary)
         }
+        // mudanças feitas no site entram mesmo sem abrir o app
+        .backgroundTask(.appRefresh(SegundoPlano.id)) {
+            await SegundoPlano.rodar()
+        }
     }
 }
 
@@ -183,6 +187,7 @@ struct UsuarioView: View {
                 if faceID { estado.bloqueado = true }
                 Notificacoes.reagendar(ctx)
                 Task { await Backup.enviar(ctx) }
+                SegundoPlano.agendar()
             case .active:
                 if estado.bloqueado && faceID { desbloquear() }
                 Recorrencias.gerar(ctx)
