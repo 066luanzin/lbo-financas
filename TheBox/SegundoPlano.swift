@@ -2,12 +2,12 @@ import Foundation
 import BackgroundTasks
 import SwiftData
 
-/// O iPhone acorda o app de vez em quando (ele decide quando) pra puxar o que foi mudado no site
+/// O iPhone acorda o app de vez em quando (ele decide quando) pra puxar as mudanças feitas no site.
+/// Não roda se o app foi fechado arrastando pra cima.
 @MainActor
 enum SegundoPlano {
     static let id = "com.lbofinancas.app.pedidos"
 
-    /// Pede pro iPhone acordar o app daqui a uns 30 minutos (ou quando ele achar melhor)
     static func agendar() {
         let pedido = BGAppRefreshTaskRequest(identifier: id)
         pedido.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)
