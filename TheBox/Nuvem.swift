@@ -29,6 +29,7 @@ struct BackupDados: Codable {
         var carteira: String
         var ultimoMes: Int
         var ativa: Bool
+        var chave: String? = nil
     }
     struct Cx: Codable {
         var nome: String
@@ -36,6 +37,7 @@ struct BackupDados: Codable {
         var saldoInicial: Double
         var prazo: Double?
         var ordem: Int
+        var chave: String? = nil
     }
 
     struct T: Codable {
@@ -47,6 +49,7 @@ struct BackupDados: Codable {
         var data: Double
         var entrada: Bool? = nil
         var destino: String? = nil
+        var chave: String? = nil
     }
     struct C: Codable {
         var nome: String
@@ -63,6 +66,7 @@ struct BackupDados: Codable {
         var adiantadas: Int
         var juros: Double
         var fim: Int?
+        var chave: String? = nil
     }
     struct Cat: Codable {
         var nome: String
@@ -71,6 +75,7 @@ struct BackupDados: Codable {
         var limite: Double
         var essencial: Bool
         var ordem: Int
+        var chave: String? = nil
     }
     struct Cart: Codable {
         var nome: String
@@ -79,6 +84,7 @@ struct BackupDados: Codable {
         var diaFechamento: Int
         var ordem: Int
         var faturasPagas: [String]
+        var chave: String? = nil
     }
     struct L: Codable {
         var mes: Int
@@ -118,35 +124,41 @@ enum Backup {
         var prefs: [String: String] = [:]
         for k in preferenciasTexto { if let v = d.string(forKey: k) { prefs[k] = v } }
         if let renda = d.object(forKey: "renda") as? Double { prefs["renda"] = String(renda) }
+        prefs["orcAtivo"] = d.bool(forKey: "orcAtivo") ? "1" : "0"
+        prefs["orcModo"] = d.string(forKey: "orcModo") ?? "dia"
+        prefs["orcSemana"] = String(d.double(forKey: "orcSemana"))
+        prefs["orcDias"] = OrcamentoDia.porDia.map { String($0) }.joined(separator: ",")
         return BackupDados(
             transacoes: ts.sorted { $0.data < $1.data }.map {
                 .init(tipo: $0.tipoRaw, valor: $0.valor, categoria: $0.categoria, carteira: $0.carteira,
                       descricao: $0.descricao, data: $0.data.timeIntervalSince1970, entrada: $0.entrada,
-                      destino: $0.destino.isEmpty ? nil : $0.destino)
+                      destino: $0.destino.isEmpty ? nil : $0.destino, chave: $0.chave.uuidString)
             },
             contas: cs.sorted { $0.nome < $1.nome }.map {
                 .init(nome: $0.nome, valor: $0.valor, dia: $0.dia, venceMesSeguinte: $0.venceMesSeguinte,
                       categoria: $0.categoria, repetir: $0.repetir, parcelaAtual: $0.parcelaAtual,
                       totalParcelas: $0.totalParcelas, inicio: $0.inicio, pagamentos: $0.pagamentos,
-                      excluidos: $0.excluidos, adiantadas: $0.adiantadas, juros: $0.juros, fim: $0.fim)
+                      excluidos: $0.excluidos, adiantadas: $0.adiantadas, juros: $0.juros, fim: $0.fim,
+                      chave: $0.chave.uuidString)
             },
             categorias: cats.sorted { $0.ordem < $1.ordem }.map {
                 .init(nome: $0.nome, icone: $0.icone, tipo: $0.tipoRaw, limite: $0.limite,
-                      essencial: $0.essencial, ordem: $0.ordem)
+                      essencial: $0.essencial, ordem: $0.ordem, chave: $0.chave.uuidString)
             },
             carteiras: carts.sorted { $0.ordem < $1.ordem }.map {
                 .init(nome: $0.nome, tipo: $0.tipoRaw, diaVencimento: $0.diaVencimento,
-                      diaFechamento: $0.diaFechamento, ordem: $0.ordem, faturasPagas: $0.faturasPagas)
+                      diaFechamento: $0.diaFechamento, ordem: $0.ordem, faturasPagas: $0.faturasPagas,
+                      chave: $0.chave.uuidString)
             },
             limites: ls.sorted { $0.mes < $1.mes }.map { .init(mes: $0.mes, valor: $0.valor) },
             preferencias: prefs,
             recorrencias: ((try? ctx.fetch(FetchDescriptor<Recorrencia>())) ?? []).map {
                 .init(nome: $0.nome, valor: $0.valor, dia: $0.dia, categoria: $0.categoria, carteira: $0.carteira,
-                      ultimoMes: $0.ultimoMes, ativa: $0.ativa)
+                      ultimoMes: $0.ultimoMes, ativa: $0.ativa, chave: $0.chave.uuidString)
             },
             caixinhas: ((try? ctx.fetch(FetchDescriptor<Caixinha>())) ?? []).map {
                 .init(nome: $0.nome, meta: $0.meta, saldoInicial: $0.saldoInicial,
-                      prazo: $0.prazo?.timeIntervalSince1970, ordem: $0.ordem)
+                      prazo: $0.prazo?.timeIntervalSince1970, ordem: $0.ordem, chave: $0.chave.uuidString)
             }
         )
     }
@@ -165,6 +177,7 @@ enum Backup {
                                  carteira: t.carteira, descricao: t.descricao,
                                  data: Date(timeIntervalSince1970: t.data), entrada: t.entrada ?? false)
             nova.destino = t.destino ?? ""
+            if let k = t.chave.flatMap(UUID.init(uuidString:)) { nova.chave = k }
             ctx.insert(nova)
         }
         for c in b.contas {
@@ -176,17 +189,21 @@ enum Backup {
             nova.adiantadas = c.adiantadas
             nova.juros = c.juros
             nova.fim = c.fim ?? 0
+            if let k = c.chave.flatMap(UUID.init(uuidString:)) { nova.chave = k }
             ctx.insert(nova)
         }
         for c in b.categorias {
-            ctx.insert(Categoria(nome: c.nome, icone: c.icone, tipo: TipoTransacao(rawValue: c.tipo) ?? .gasto,
-                                 limite: c.limite, essencial: c.essencial, ordem: c.ordem))
+            let nova = Categoria(nome: c.nome, icone: c.icone, tipo: TipoTransacao(rawValue: c.tipo) ?? .gasto,
+                                 limite: c.limite, essencial: c.essencial, ordem: c.ordem)
+            if let k = c.chave.flatMap(UUID.init(uuidString:)) { nova.chave = k }
+            ctx.insert(nova)
         }
         for c in b.carteiras {
             let nova = Carteira(nome: c.nome, tipo: TipoCarteira(rawValue: c.tipo) ?? .credito,
                                 diaVencimento: c.diaVencimento, ordem: c.ordem)
             nova.diaFechamento = c.diaFechamento
             nova.faturasPagas = c.faturasPagas
+            if let k = c.chave.flatMap(UUID.init(uuidString:)) { nova.chave = k }
             ctx.insert(nova)
         }
         for l in b.limites { ctx.insert(LimiteMensal(mes: l.mes, valor: l.valor)) }
@@ -194,16 +211,24 @@ enum Backup {
             let nova = Recorrencia(nome: r.nome, valor: r.valor, dia: r.dia, categoria: r.categoria,
                                    carteira: r.carteira, ultimoMes: r.ultimoMes)
             nova.ativa = r.ativa
+            if let k = r.chave.flatMap(UUID.init(uuidString:)) { nova.chave = k }
             ctx.insert(nova)
         }
         for c in b.caixinhas ?? [] {
-            ctx.insert(Caixinha(nome: c.nome, meta: c.meta, saldoInicial: c.saldoInicial,
-                                prazo: c.prazo.map { Date(timeIntervalSince1970: $0) }, ordem: c.ordem))
+            let nova = Caixinha(nome: c.nome, meta: c.meta, saldoInicial: c.saldoInicial,
+                                prazo: c.prazo.map { Date(timeIntervalSince1970: $0) }, ordem: c.ordem)
+            if let k = c.chave.flatMap(UUID.init(uuidString:)) { nova.chave = k }
+            ctx.insert(nova)
         }
         try? ctx.save()
         let d = UserDefaults.standard
         for (k, v) in b.preferencias {
-            if k == "renda" { d.set(Double(v) ?? 0, forKey: k) } else { d.set(v, forKey: k) }
+            switch k {
+            case "renda", "orcSemana": d.set(Double(v) ?? 0, forKey: k)
+            case "orcAtivo": d.set(v == "1", forKey: k)
+            case "orcDias": d.set(v.split(separator: ",").map { Double($0) ?? 0 }, forKey: k)
+            default: d.set(v, forKey: k)
+            }
         }
         Store.semear(ctx)
         Notificacoes.reagendar(ctx)
