@@ -6,7 +6,20 @@ import Supabase
 
 /// Cliente único do Supabase (login e backup usam o mesmo)
 enum Nuvem {
-    static let client = SupabaseClient(supabaseURL: Configuracao.supabaseURL, supabaseKey: Configuracao.supabaseChave)
+    static let client = SupabaseClient(
+        supabaseURL: Configuracao.supabaseURL, supabaseKey: Configuracao.supabaseChave,
+        options: SupabaseClientOptions(auth: .init(storage: SessaoNoAparelho()))
+    )
+}
+
+/// Guarda o login da nuvem nos arquivos do app em vez do chaveiro: quando o SideStore reinstala
+/// com outro certificado, o chaveiro some e o backup parava com "sem permissão"; aqui o login fica.
+struct SessaoNoAparelho: AuthLocalStorage {
+    private let d = UserDefaults.standard
+    private func k(_ key: String) -> String { "sessaoNuvem." + key }
+    func store(key: String, value: Data) throws { d.set(value, forKey: k(key)) }
+    func retrieve(key: String) throws -> Data? { d.data(forKey: k(key)) }
+    func remove(key: String) throws { d.removeObject(forKey: k(key)) }
 }
 
 /// Cópia de tudo que o usuário tem no app, guardada na tabela "backups" do Supabase
