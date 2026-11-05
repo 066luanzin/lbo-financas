@@ -120,7 +120,7 @@ struct InsightsView: View {
             if editandoRenda {
                 HStack {
                     TextField("quanto entra por mês", text: $rendaTexto)
-                        .keyboardType(.numberPad)
+                        .mascaraDinheiro($rendaTexto)
                         .focused($focoRenda)
                     Button("OK") {
                         renda = lerValor(rendaTexto) ?? 0
