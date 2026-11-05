@@ -103,6 +103,7 @@ enum Pedidos {
     }
 
     /// Aplica um pedido de cada vez, sempre lendo o banco de novo (um pedido pode depender do anterior)
+    @MainActor
     private struct Aplicador {
         let ctx: ModelContext
         var gastos: [(String, Double, Date)] = []
