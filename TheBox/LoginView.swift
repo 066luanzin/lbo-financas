@@ -255,7 +255,8 @@ struct LoginView: View {
 
     private func criar() {
         executar {
-            try await sessao.criarConta(nome: nome.trimmingCharacters(in: .whitespaces), email: emailLimpo, senha: senha)
+            let entrou = try await sessao.criarConta(nome: nome.trimmingCharacters(in: .whitespaces), email: emailLimpo, senha: senha)
+            if entrou { return }
             codigo = ""
             etapa = .codigo
             aviso = nil

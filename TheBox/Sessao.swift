@@ -16,9 +16,15 @@ final class Sessao {
         registrar(s.user, nome: nil)
     }
 
-    func criarConta(nome: String, email: String, senha: String) async throws {
-        _ = try await client.auth.signUp(email: email, password: senha, data: ["nome": .string(nome)])
+    /// Devolve true quando o servidor já entra direto (confirmação de e-mail desligada no Supabase).
+    func criarConta(nome: String, email: String, senha: String) async throws -> Bool {
+        let r = try await client.auth.signUp(email: email, password: senha, data: ["nome": .string(nome)])
+        if r.session != nil {
+            registrar(r.user, nome: nome)
+            return true
+        }
         UserDefaults.standard.set(nome, forKey: "nomePendente")
+        return false
     }
 
     func confirmarCadastro(email: String, codigo: String) async throws {

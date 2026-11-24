@@ -1,0 +1,24 @@
+# O Supabase gratuito pausa o projeto depois de 7 dias sem acesso.
+# Esta tarefa faz uma consulta simples todo dia pra ele continuar ativo.
+# Se falhar com "exit code 6" = endereço não existe = projeto pausou: painel do Supabase → Restore project.
+# A chave usada é a publicável (a mesma que já está no app e no site), não é segredo.
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # 9h de Brasília, todo dia
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar o banco
+        run: |
+          code=$(curl -s -o resposta.json -w "%{http_code}" -X POST \
+            "https://hxrqfwgtkmloznyzezhj.supabase.co/rest/v1/rpc/ping" \
+            -H "apikey: sb_publishable_uRD3MNETodFm9LmeVdjAWw_32woon5R" \
+            -H "Content-Type: application/json" -d '{}')
+          cat resposta.json; echo
+          echo "HTTP $code"
+          test "$code" = "200"
